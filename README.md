@@ -68,7 +68,7 @@ The script will generate conversation logs in conversation_log.csv (ignored in G
 Future database integration will store conversations in SQLite.
 
 Project Structure
-
+```
 local_llm/
 ├── test_phi7.py          # Main chatbot logic
 ├── phi_env/              # Virtual environment (ignored)
@@ -76,7 +76,7 @@ local_llm/
 ├── .gitignore            # Ignored files/folders
 ├── requirements.txt      # Project dependencies
 ├── README.md             # Project overview and instructions
-
+```
 Notes
 
     Do not commit phi_env/ or runtime logs; they are machine-specific.
