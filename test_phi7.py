@@ -1,76 +1,58 @@
 import os
 import sqlite3
-import uuid
 from datetime import datetime
 from ollama import chat 
+from functions import (
+    generate_new_session_id,
+    get_all_sessions,
+    load_session_messages,
+    create_new_session,
+    save_message
+)
 
 DB_PATH = "db/chat_sessions.db"
 
-
 # ------------------------
-# Helper Functions
+# Backend Function
 # ------------------------
+def process_user_message(cursor, session_id, messages, user_message):
+    """
+    Adds user message, saves to DB, calls LLM, returns assistant reply.
+    """
+    # Add user message
+    messages.append({"role": "user", "content": user_message})
+    save_message(cursor, session_id, "user", user_message)
 
-def generate_new_session_id():
-    return str(uuid.uuid4())
-
-
-def get_all_sessions(cursor):
-    cursor.execute("""
-        SELECT session_id, start_time
-        FROM sessions
-        ORDER BY start_time DESC
-    """)
-    return cursor.fetchall()
-
-
-def load_session_messages(cursor, session_id):
-    cursor.execute("""
-        SELECT role, content
-        FROM messages
-        WHERE session_id = ?
-        ORDER BY timestamp ASC
-    """, (session_id,))
-    rows = cursor.fetchall()
-    return [{"role": r[0], "content": r[1]} for r in rows]
-
-
-# ------------------------
-# Main Program
-# ------------------------
-
-def main():
-    # Ensure db folder exists
-    os.makedirs("db", exist_ok=True)
-
-    # Database setup
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    # Create tables if they don't exist
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS sessions(
-        session_id TEXT PRIMARY KEY,
-        start_time TEXT
+    # Call LLM
+    stream = chat(
+        model="phi3:mini",
+        messages=messages,
+        options={"temperature": 0.4},
+        stream=True
     )
-    """)
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS messages(
-        message_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT,
-        role TEXT,
-        content TEXT,
-        timestamp TEXT,
-        FOREIGN KEY(session_id) REFERENCES sessions(session_id)
-    )
-    """)
-    conn.commit()
+    assistant_reply = ""
+    for chunk in stream:
+        if "message" in chunk:
+            content = chunk["message"]["content"]
+            print(content, end="", flush=True)  # CLI streaming
+            assistant_reply += content
+    print("\n")
 
-    # ------------------------
-    # Startup: New or Resume
-    # ------------------------
+    # Save assistant reply
+    messages.append({"role": "assistant", "content": assistant_reply})
+    save_message(cursor, session_id, "assistant", assistant_reply)
 
+    return assistant_reply
+
+# ------------------------
+# Session Loader
+# ------------------------
+def load_or_create_session(cursor):
+    """
+    Handles CLI session selection or creates new session.
+    Returns (session_id, messages)
+    """
     sessions = get_all_sessions(cursor)
 
     if sessions:
@@ -83,130 +65,74 @@ def main():
         ).strip()
 
         if user_choice.lower() == "new":
-            session_id = generate_new_session_id()
-            start_time = datetime.now().isoformat()
-
-            cursor.execute(
-                "INSERT INTO sessions (session_id, start_time) VALUES (?, ?)",
-                (session_id, start_time)
-            )
-            conn.commit()
-
+            session_id, start_time = create_new_session(cursor)
             messages = [
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant. Answer clearly and concisely. Do not change the task."
-                }
+                {"role": "system", "content": "You are a helpful assistant. Answer clearly and concisely. Do not change the task."}
             ]
-
-            print("\n=== NEW SESSION STARTED ===")
-            print(f"Session ID: {session_id}")
-            print("============================\n")
-
+            print(f"\n=== NEW SESSION STARTED | {session_id} ===\n")
         else:
             try:
                 selection = int(user_choice)
                 session_id, start_time = sessions[selection - 1]
-
                 messages = load_session_messages(cursor, session_id)
-
-                print("\n=== RESUMING SESSION ===")
-                print(f"Session ID: {session_id}")
-                print(f"Messages Loaded: {len(messages)}")
-                print("========================\n")
-
+                print(f"\n=== RESUMING SESSION | {session_id} | {len(messages)} messages ===\n")
             except (ValueError, IndexError):
-                print("Invalid selection. Starting a new session.")
-                session_id = generate_new_session_id()
-                start_time = datetime.now().isoformat()
-
-                cursor.execute(
-                    "INSERT INTO sessions (session_id, start_time) VALUES (?, ?)",
-                    (session_id, start_time)
-                )
-                conn.commit()
-
+                session_id, start_time = create_new_session(cursor)
                 messages = [
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant. Answer clearly and concisely. Do not change the task."
-                    }
+                    {"role": "system", "content": "You are a helpful assistant. Answer clearly and concisely. Do not change the task."}
                 ]
-
+                print(f"\n=== INVALID SELECTION, NEW SESSION STARTED | {session_id} ===\n")
     else:
         # No sessions exist yet
-        session_id = generate_new_session_id()
-        start_time = datetime.now().isoformat()
-
-        cursor.execute(
-            "INSERT INTO sessions (session_id, start_time) VALUES (?, ?)",
-            (session_id, start_time)
-        )
-        conn.commit()
-
+        session_id, start_time = create_new_session(cursor)
         messages = [
-            {
-                "role": "system",
-                "content": "You are a helpful assistant. Answer clearly and concisely. Do not change the task."
-            }
+            {"role": "system", "content": "You are a helpful assistant. Answer clearly and concisely. Do not change the task."}
         ]
+        print(f"\n=== FIRST SESSION CREATED | {session_id} ===\n")
 
-        print("\n=== FIRST SESSION CREATED ===")
-        print(f"Session ID: {session_id}")
-        print("=============================\n")
+    return session_id, messages
 
-    # ------------------------
-    # Chat Loop
-    # ------------------------
+# ------------------------
+# Main CLI Adapter
+# ------------------------
+def main():
+    os.makedirs("db", exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
 
+    # Create tables if not exist
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS sessions(
+        session_id TEXT PRIMARY KEY,
+        start_time TEXT
+    )
+    """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS messages(
+        message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT,
+        role TEXT,
+        content TEXT,
+        timestamp TEXT,
+        FOREIGN KEY(session_id) REFERENCES sessions(session_id)
+    )
+    """)
+    conn.commit()
+
+    # Load or create session
+    session_id, messages = load_or_create_session(cursor)
+
+    # CLI Chat Loop
     while True:
         question = input("Ask the model something (type 'exit' to quit): ")
-
         if question.lower() == "exit":
             print("Goodbye")
             break
 
-        # Add user message to memory
-        messages.append({"role": "user", "content": question})
-
-        # Save user message to DB
-        cursor.execute(
-            "INSERT INTO messages (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
-            (session_id, "user", question, datetime.now().isoformat())
-        )
-        conn.commit()
-
-        # Streaming chat
-        print("\nPhi3 says:\n", end="", flush=True)
-
-        stream = chat(
-            model="phi3:mini",
-            messages=messages,
-            options={"temperature": 0.4},
-            stream=True
-        )
-
-        assistant_reply = ""
-
-        for chunk in stream:
-            if "message" in chunk:
-                content = chunk["message"]["content"]
-                print(content, end="", flush=True)
-                assistant_reply += content
-
-        print("\n")
-
-        # Add assistant reply to memory
-        messages.append({"role": "assistant", "content": assistant_reply})
-
-        # Save assistant message
-        cursor.execute(
-            "INSERT INTO messages (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
-            (session_id, "assistant", assistant_reply, datetime.now().isoformat())
-        )
-        conn.commit()
+        process_user_message(cursor, session_id, messages, question)
 
     conn.close()
+
 
 
 if __name__ == "__main__":
