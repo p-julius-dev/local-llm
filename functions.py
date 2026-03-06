@@ -1,3 +1,4 @@
+from ollama import chat
 import uuid
 from datetime import datetime
 
@@ -46,3 +47,45 @@ def save_message(cursor, session_id, role, content):
         "INSERT INTO messages (session_id, role, content, timestamp) VALUES (?, ?, ?, ?)",
         (session_id, role, content, datetime.now().isoformat())
     )
+
+def recall_last_messages(messages, n=5):
+    """recall and print last five messages"""
+    last_n_messages = messages[-n:]
+    
+    print(f"\n--- Last {len(last_n_messages)} Messages (History) ---")
+    for message in last_n_messages:
+        print(f"[{message['role'].capitalize()}]: {message['content']}")
+    print("-------------------------------------------\n")
+
+    # ------------------------
+# Backend Function
+# ------------------------
+def process_user_message(cursor, session_id, messages, user_message):
+    """
+    Adds user message, saves to DB, calls LLM, returns assistant reply.
+    """
+    # Add user message
+    messages.append({"role": "user", "content": user_message})
+    save_message(cursor, session_id, "user", user_message)
+
+    # Call LLM
+    stream = chat(
+        model="phi3:mini",
+        messages=messages,
+        options={"temperature": 0.4},
+        stream=True
+    )
+
+    assistant_reply = ""
+    for chunk in stream:
+        if "message" in chunk:
+            content = chunk["message"]["content"]
+            print(content, end="", flush=True)  # CLI streaming
+            assistant_reply += content
+    print("\n")
+
+    # Save assistant reply
+    messages.append({"role": "assistant", "content": assistant_reply})
+    save_message(cursor, session_id, "assistant", assistant_reply)
+
+    return assistant_reply

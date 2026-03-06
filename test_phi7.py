@@ -7,7 +7,8 @@ from functions import (
     get_all_sessions,
     load_session_messages,
     create_new_session,
-    save_message
+    save_message,
+    recall_last_messages
 )
 
 DB_PATH = "db/chat_sessions.db"
@@ -128,6 +129,9 @@ def main():
         if question.lower() == "exit":
             print("Goodbye")
             break
+        elif question.lower() == '/history':
+            recall_last_messages(messages)
+            continue # Continue the loop without adding the command to history
 
         process_user_message(cursor, session_id, messages, question)
 

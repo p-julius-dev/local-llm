@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Local LLM Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar-left, .sidebar-right {
+            width: 200px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .sidebar-left {
+            background: #f2f2f2;
+        }
+        .sidebar-right {
+            background: #f9f9f9;
+        }
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            padding: 10px;
+            font-size: 1.5em;
+            border-bottom: 1px solid #ccc;
+        }
+        #chat-history {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ccc;
+        }
+        .input-bar {
+            display: flex;
+            padding: 10px;
+        }
+        .input-bar input {
+            flex: 1;
+            padding: 8px;
+            margin-right: 10px;
+        }
+        .message {
+            margin-bottom: 8px;
+        }
+        .message.user {
+            color: blue;
+        }
+        .message.assistant {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-left">
+        <h3>Chat History</h3>
+        <div id="history-list"></div>
+        <button id="clear-history">Delete All History</button>
+    </div>
+
+    <div class="main">
+        <div class="header">WOPR Chat</div>
+        <div id="chat-history"></div>
+        <div class="input-bar">
+            <input type="text" id="user-input" placeholder="Ask WOPR...">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <div class="sidebar-right">
+        <h3>Recent Files</h3>
+        <div id="recent-files"></div>
+        <button id="upload-btn">Upload</button>
+    </div>
+
+    <script>
+        const chatHistory = document.getElementById("chat-history");
+        const input = document.getElementById("user-input");
+        const sendBtn = document.getElementById("send-btn");
+
+        sendBtn.onclick = async () => {
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message locally first
+            chatHistory.innerHTML += `<div class="message user"><strong>You:</strong> ${message}</div>`;
+
+            // Send to Flask backend
+            const response = await fetch("/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message })
+            });
+            const data = await response.json();
+
+            // Add assistant reply
+            chatHistory.innerHTML += `<div class="message assistant"><strong>WOPR:</strong> ${data.reply}</div>`;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            input.value = "";
+        };
+
+        input.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") sendBtn.click();
+        });
+    </script>
+
+</body>
+</html>
