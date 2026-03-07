@@ -19,7 +19,7 @@ def safe_exit(sig, frame):
     
     sys.exit(0)  # exit Python cleanly
 
-# Single active session for UI (we can expand later)
+# Single active session for UI (can expand later)
 session_id = "ui-session"
 messages = []
 
