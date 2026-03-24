@@ -2,7 +2,10 @@
 
 **Local LLM** is a Python-based chatbot project that runs Ollama models locally and stores conversations in SQLite with session-based persistence.
 
+It now includes a **Flask web UI** with a sidebar to view and resume past sessions.
+
 The project is structured for incremental feature development using Git branches and tagged milestones.
+
 
 ## Current Features
 
@@ -12,15 +15,17 @@ SQLite-backed conversation storage
 
 Session-based conversation tracking
 
-Resume previous sessions
+Resume previous sessions from UI
 
-Clean version control workflow with tagged milestones
+Flask web interface with session sidebar
 
 ## Milestones
 
  - v0.1-basic-llm — Initial local chatbot
 
- - v0.2-resume-sessions — SQLite integration with session resume support
+ - v0.2-resume-sessions — SQLite integration with session persistence
+
+ - v0.3-web-ui — Flask UI with session sidebar and resume functionality
 
 ---
 
@@ -30,6 +35,7 @@ Clean version control workflow with tagged milestones
 - [Ollama](https://ollama.com/) installed and configured  
 - SQLite3 (standard with Python)  
 - pip package manager  
+- Flask (`pip install flask`)
 
 ---
 ### Set Up the Ollama Model
@@ -80,12 +86,15 @@ pip install -r requirements.txt
 
 Run the main script:
 ```bash
-python test_phi7.py
+python app.py
 ```
-The application:
-- Creates/uses a local SQLite database (ignored in Git)
-- Stores conversations by session_id
-- Allows resuming previous sessions
+Then open your browser to:
+http://127.0.0.1:5000/
+(there is also a link available in the terminal window, Ctrl + Click to follow)
+
+- The sidebar lists past sessions
+- Click a session to resum the conversation
+- New messages are stored in SQlite
 
 ## Architecture Notes
 
@@ -113,7 +122,12 @@ It provides a clean foundation for future features such as export tools, visuali
 ## Project Structure
 ```
 local_llm/
-├── test_phi7.py          # Main chatbot logic
+├── app.py                # Main Flask app with chatbot logic
+├── functions.py          # Refactored model interaction logic
+├── templates/            # HTML templates
+│   └── index.html
+├── static/
+│   └── styles.css
 ├── db/                   # SQLite database (ignored)
 ├── phi_env/              # Virtual environment (ignored)
 ├── .gitignore
@@ -121,7 +135,11 @@ local_llm/
 ├── README.md
 ```
 
-## Roadmap
+## Roadmap / Future Enhancements
+
+- Chat naming in sidebar
+
+- File import/export sidebar
 
 - CSV → XLSX export
 
