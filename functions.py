@@ -57,7 +57,7 @@ def recall_last_messages(messages, n=5):
         print(f"[{message['role'].capitalize()}]: {message['content']}")
     print("-------------------------------------------\n")
 
-    # ------------------------
+# ------------------------
 # Backend Function
 # ------------------------
 def process_user_message(cursor, session_id, messages, user_message):

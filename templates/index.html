@@ -9,27 +9,13 @@
 
 <div class="app-container">
 
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <h2>Sessions</h2>
-
-        <div class="session-list">
-            <div class="session-item">
-                <span>Flask UI Notes</span>
-                <span class="session-menu">⋯</span>
-            </div>
-            <div class="session-item">
-                <span>AWS Study</span>
-                <span class="session-menu">⋯</span>
-            </div>
-            <div class="session-item">
-                <span>Beyblade Builds</span>
-                <span class="session-menu">⋯</span>
-            </div>
-        </div>
-
-        <button class="new-chat">+ New Chat</button>
+ <!-- Sidebar -->
+    <div id="sidebar">
+        <h3>Chat History</h3>
+        <ul id="session-list"></ul>
     </div>
+
+      
 
     <!-- Main Chat Area -->
     <div class="chat-container">
@@ -46,22 +32,83 @@
 </div>
 
 <script>
+
 async function sendMessage() {
     const input = document.getElementById("message-input")
     const chatWindow = document.getElementById("chat-window")
+
     const userMessage = input.value
     if (!userMessage) return
+
     chatWindow.innerHTML += `<div class="user-msg">${userMessage}</div>`
     input.value = ""
+
     const response = await fetch("/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json"
+        },
         body: JSON.stringify({ message: userMessage })
     })
+
     const data = await response.json()
+
     chatWindow.innerHTML += `<div class="assistant-msg">${data.reply}</div>`
     chatWindow.scrollTop = chatWindow.scrollHeight
+
+    // reload sessions so newest is at top
+    loadSessions()
 }
+
+
+async function loadSessions() {
+    const response = await fetch("/sessions")
+    const sessions = await response.json()
+
+    const list = document.getElementById("session-list")
+    list.innerHTML = ""
+
+    sessions.forEach(session => {
+        const div = document.createElement("div")
+        div.className = "session-item"
+
+        const date = new Date(session.start_time).toLocaleString()
+        div.textContent = date
+
+        div.onclick = () => loadSession(session.session_id)
+
+        list.appendChild(div)
+    })
+}
+
+
+async function loadSession(sessionId) {
+    const response = await fetch(`/session/${sessionId}`)
+    const messages = await response.json()
+
+    const chatWindow = document.getElementById("chat-window")
+    chatWindow.innerHTML = ""
+
+    messages.forEach(msg => {
+        const div = document.createElement("div")
+
+        if (msg.role === "user") {
+            div.className = "user-msg"
+        } else {
+            div.className = "assistant-msg"
+        }
+
+        div.textContent = msg.content
+        chatWindow.appendChild(div)
+    })
+}
+
+
+// Load sessions when page opens
+window.onload = () => {
+    loadSessions()
+}
+
 </script>
 
 </body>
