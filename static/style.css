@@ -3,6 +3,7 @@ body {
     font-family: Arial, sans-serif;
     background: #1e1e1e;
     color: #f0f0f0;
+    overflow: hidden;
 }
 
 .app-container {
@@ -60,6 +61,10 @@ body {
     font-size: 16px;
 }
 
+.new-chat:hover {
+    background: #1d4ed8;
+}
+
 /* Chat area */
 .chat-container {
     flex: 1;
@@ -71,6 +76,8 @@ body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    flex-direction: column;
+    scroll-behavior: smooth;
 }
 
 .user-msg {
@@ -90,11 +97,19 @@ body {
     border-radius: 12px;
     margin: 8px;
     max-width: 70%;
+    overflow-wrap: break-word;
+    align-self: flex-start;
 }
 
-.assistant-msg {
-    overflow-wrap: break-word;
+/* spacing & breathing room in chat */
+.user-msg, .assistant-msg {
+    padding: 12px 14px;
+    margin: 6px 10px;
+    border-radius: 14px;
+    max-width: 70%;
+    line-height: 1.4;
 }
+
 /* Code block styling */
 pre {
     background-color: #1e1e1e;
@@ -103,13 +118,12 @@ pre {
     border-radius: 8px;
     overflow-x: auto;
     margin-top: 8px;
-}
-
-pre {
     white-space: pre-wrap;
     word-break: break-word;
     overflow-x: auto;
 }
+
+
 code {
     font-family: monospace;
     font-size: 0.9em;
@@ -130,6 +144,7 @@ code {
     margin-right: 10px;
     background: #1e1e1e;
     color: #fff;
+    outline: none;
 }
 
 button {
