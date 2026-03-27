@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 import sqlite3
-from functions import process_user_message, create_new_session, get_all_sessions, load_session_messages  # your refactored function
+from functions import process_user_message, create_new_session, get_all_sessions, load_session_messages, save_message
 from datetime import datetime
 import signal
 import sys
+from ollama import chat
 
 app = Flask(__name__)
 
@@ -45,6 +46,21 @@ def load_session(session_id):
 
     return jsonify(messages)
 
+# Start New session
+@app.post("/new_session")
+def new_session():
+    global current_session_id
+    global messages
+
+    with sqlite3.connect(DB_PATH, check_same_thread=False) as conn:
+        cursor = conn.cursor()
+        current_session_id, _ = create_new_session(cursor)
+        conn.commit()
+
+    messages = []
+
+    return jsonify({"status": "ok"})
+
 
 def safe_exit(sig, frame):
     """Handles Ctrl+C gracefully"""
@@ -68,23 +84,44 @@ def index():
 
 @app.post("/chat")
 def chat_route():
-    global messages
     global current_session_id
+    global messages
 
     user_message = request.json.get("message", "")
 
-    with sqlite3.connect(DB_PATH, check_same_thread=False) as conn:
-        cursor = conn.cursor()
+    def generate():
+        global current_session_id   # REQUIRED HERE
 
-        # Create session if it doesn't exist yet
-        if current_session_id is None:
-            current_session_id, _ = create_new_session(cursor)
+        with sqlite3.connect(DB_PATH, check_same_thread=False) as conn:
+            cursor = conn.cursor()
 
-        reply = process_user_message(cursor, current_session_id, messages, user_message)
+            if current_session_id is None:
+                current_session_id, _ = create_new_session(cursor)
 
-        conn.commit()
+            messages.append({"role": "user", "content": user_message})
+            save_message(cursor, current_session_id, "user", user_message)
 
-    return jsonify({"reply": reply})
+            stream = chat(
+                model="phi3:mini",
+                messages=messages,
+                options={"temperature": 0.4},
+                stream=True
+            )
+
+            assistant_reply = ""
+
+            for chunk in stream:
+                if "message" in chunk:
+                    content = chunk["message"]["content"]
+                    assistant_reply += content
+                    yield content
+
+            messages.append({"role": "assistant", "content": assistant_reply})
+            save_message(cursor, current_session_id, "assistant", assistant_reply)
+            conn.commit()
+
+    return Response(generate(), content_type="text/plain")
+
 
 if __name__ == "__main__":
     try:

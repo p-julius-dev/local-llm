@@ -13,6 +13,7 @@
     <div id="sidebar">
         <h3>Chat History</h3>
         <ul id="session-list"></ul>
+        <button class="new-chat" onclick="createNewSession()">+ New Chat</button>
     </div>
 
       
@@ -45,18 +46,32 @@ async function sendMessage() {
 
     const response = await fetch("/chat", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage })
     })
 
-    const data = await response.json()
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
 
-    chatWindow.innerHTML += `<div class="assistant-msg">${data.reply}</div>`
+    let assistantDiv = document.createElement("div")
+    assistantDiv.className = "assistant-msg"
+    chatWindow.appendChild(assistantDiv)
+
+    let done = false
+
+    let fullText = ""
+
+    while (!done) {
+        const { value, done: doneReading } = await reader.read()
+        done = doneReading
+
+        const chunk = decoder.decode(value || new Uint8Array())
+        fullText += chunk
+        assistantDiv.innerHTML = fullText.replace(/\n/g, "<br>")
+    }
+
     chatWindow.scrollTop = chatWindow.scrollHeight
 
-    // reload sessions so newest is at top
     loadSessions()
 }
 
@@ -98,10 +113,31 @@ async function loadSession(sessionId) {
             div.className = "assistant-msg"
         }
 
-        div.textContent = msg.content
+        div.innerHTML = msg.content.replace(/\n/g, "<br>")
         chatWindow.appendChild(div)
     })
 }
+async function createNewSession() {
+    await fetch("/new_session", { method: "POST" })
+
+    // Clear chat window
+    const chatWindow = document.getElementById("chat-window")
+    chatWindow.innerHTML = ""
+
+    // OPTIONAL (important): reset input focus
+    document.getElementById("message-input").focus()
+
+    // Reload sidebar so new session appears
+    loadSessions()
+}
+
+document.getElementById("message-input")
+    .addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault()
+            sendMessage()
+        }
+    })
 
 
 // Load sessions when page opens
