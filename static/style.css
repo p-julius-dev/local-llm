@@ -74,21 +74,45 @@ body {
 }
 
 .user-msg {
-    text-align: right;
-    margin: 10px;
-    background: #007ACC33;
-    display: inline-block;
-    padding: 8px 12px;
-    border-radius: 10px;
+    background: #2563eb;
+    color: white;
+    padding: 10px;
+    border-radius: 12px;
+    margin: 8px;
+    align-self: flex-end;
+    max-width: 70%;
 }
 
 .assistant-msg {
-    text-align: left;
-    margin: 10px;
-    background: #444444;
-    display: inline-block;
-    padding: 8px 12px;
-    border-radius: 10px;
+    background: #2a2a2a;
+    color: #e5e5e5;
+    padding: 10px;
+    border-radius: 12px;
+    margin: 8px;
+    max-width: 70%;
+}
+
+.assistant-msg {
+    overflow-wrap: break-word;
+}
+/* Code block styling */
+pre {
+    background-color: #1e1e1e;
+    color: #dcdcdc;
+    padding: 12px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin-top: 8px;
+}
+
+pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+code {
+    font-family: monospace;
+    font-size: 0.9em;
 }
 
 /* Input area */
