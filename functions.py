@@ -12,7 +12,7 @@ def generate_new_session_id():
 
 def get_all_sessions(cursor):
     cursor.execute("""
-        SELECT session_id, start_time
+        SELECT session_id, start_time, name
         FROM sessions
         ORDER BY start_time DESC
     """)
@@ -31,14 +31,12 @@ def load_session_messages(cursor, session_id):
 
 
 def create_new_session(cursor):
-    """Create a new session and insert into DB."""
-    # Let SQLite handle auto-increment ID; no need to generate manually
     default_name = "New Chat"
     start_time = datetime.now().isoformat()
 
     cursor.execute(
         "INSERT INTO sessions (start_time, name) VALUES (?, ?)",
-        (start_time, default_name)
+        (start_time, default_name) 
     )
 
     session_id = cursor.lastrowid  # Get the auto-generated session_id

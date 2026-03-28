@@ -64,12 +64,16 @@ body {
     border-radius: 10px;
     cursor: pointer;
     transition: background 0.2s;
+    position: relative;    
 }
+
 .session-text {
-    flex: 1;               
+    flex-grow: 1;               
     overflow: hidden;      /* prevent overflow text */
     text-overflow: ellipsis; 
     white-space: nowrap;
+    pointer-events: auto;
+
 }
 
 /* Hover background */
@@ -81,6 +85,9 @@ body {
     opacity: 1;
 }
 
+.session-item * {
+    pointer-events: auto;
+}
 .session-menu {
     font-weight: bold;
     cursor: pointer;
@@ -102,13 +109,52 @@ body {
     border: none;
     color: #888;
     cursor: pointer;
-    margin-left: 8px;
+    width: auto;
     padding: 4px;
+    height: auto;
 }
 
 .delete-btn:hover {
     color: red;
     background: transparent;
+}
+/*sidebar three button menu */
+.action-btn {
+    background: transparent;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 16px;
+    margin-left: 8px;
+}
+
+.action-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 6px;
+    min-width: 80px;
+    z-index: 10;
+}
+
+.action-menu div {
+    padding: 5px;
+    cursor: pointer;
+}
+
+.action-menu div:hover {
+    background: #555;
+}
+
+.menu-option {
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.menu-option:hover {
+    background: #444;
 }
 
 /* Chat area */

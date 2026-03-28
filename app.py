@@ -55,7 +55,11 @@ def get_sessions():
         sessions = get_all_sessions(cursor)
 
     results = [
-        {"session_id": s[0], "start_time": s[1]}
+        {
+            "session_id": s[0],
+            "start_time": s[1],
+            "name": s[2]   # ← THIS IS THE FIX
+        }
         for s in sessions
     ]
 
@@ -86,13 +90,18 @@ def new_session():
 
     with sqlite3.connect(DB_PATH, check_same_thread=False) as conn:
         cursor = conn.cursor()
-        current_session_id, _ = create_new_session(cursor)
+        # Create session: returns (id, name)
+        current_session_id, default_name = create_new_session(cursor)
         conn.commit()
 
     messages = []
 
-    return jsonify({"status": "ok"})
-
+    # Send both ID and name back to frontend
+    return jsonify({
+        "status": "ok",
+        "session_id": current_session_id,
+        "name": default_name
+    })
 
 def safe_exit(sig, frame):
     """Handles Ctrl+C gracefully"""
@@ -167,6 +176,21 @@ def chat_route():
             conn.commit()
 
     return Response(generate(), content_type="text/plain")
+
+# rename session
+@app.route("/rename_session/<int:session_id>", methods=["POST"])
+def rename_session(session_id):
+    new_name = request.json.get("name", "").strip()
+    if not new_name:
+        return {"status": "error", "message": "Name cannot be empty"}, 400
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE sessions SET name = ? WHERE session_id = ?", (new_name, session_id))
+    conn.commit()
+    conn.close()
+
+    return {"status": "ok", "name": new_name}
 
 
 if __name__ == "__main__":

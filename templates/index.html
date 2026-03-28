@@ -75,43 +75,77 @@ async function sendMessage() {
 }
 
 
-async function loadSessions() {
+async function loadSessions(selectedSessionId = null) {
     const response = await fetch("/sessions")
     const sessions = await response.json()
 
     const list = document.getElementById("session-list")
     list.innerHTML = ""  // clear everything
 
-    // Build each session item
     sessions.forEach(session => {
         const li = document.createElement("li")
         li.className = "session-item"
+        li.dataset.sessionId = session.session_id
 
-        // Session date text
+        // Session name text
         const span = document.createElement("span")
-        span.textContent = new Date(session.start_time).toLocaleString()
+        span.textContent = session.name || new Date(session.start_time).toLocaleString()
         span.className = "session-text"
         li.appendChild(span)
 
-        // Delete button
-        const deleteBtn = document.createElement("button")
-        deleteBtn.className = "delete-btn"
-        deleteBtn.textContent = "⋮"
-        deleteBtn.onclick = async (e) => {
-            e.stopPropagation()  // prevent triggering li click
-            await fetch(`/delete_session/${session.session_id}`, { method: "POST" })
-            loadSessions()
-            document.getElementById("chat-window").innerHTML = ""
-        }
-        li.appendChild(deleteBtn)
+        // Menu button (three dots)
+        const menuBtn = document.createElement("button")
+        menuBtn.className = "action-btn"  // matches CSS
+        menuBtn.textContent = "⋮"
 
-        // Load session click
+        menuBtn.onclick = (e) => {
+            e.stopPropagation()  // prevent li click
+
+            // Remove existing popouts
+            document.querySelectorAll(".action-menu").forEach(m => m.remove())
+
+            // Create menu
+            const menu = document.createElement("div")
+            menu.className = "action-menu"
+
+            // Rename
+            const renameOption = document.createElement("div")
+            renameOption.textContent = "Rename"
+            renameOption.onclick = (ev) => {
+                ev.stopPropagation()
+                renameSession(session.session_id, span.textContent, span)
+                menu.remove()
+            }
+            menu.appendChild(renameOption)
+
+            // Delete
+            const deleteOption = document.createElement("div")
+            deleteOption.textContent = "Delete"
+            deleteOption.onclick = async (ev) => {
+                ev.stopPropagation()
+                await fetch(`/delete_session/${session.session_id}`, { method: "POST" })
+                loadSessions()
+                document.getElementById("chat-window").innerHTML = ""
+            }
+            menu.appendChild(deleteOption)
+
+            li.appendChild(menu)
+        }
+
+        li.appendChild(menuBtn)
+
+        // Click anywhere else on li loads the session
         li.onclick = () => loadSession(session.session_id)
+
+        // Highlight selected session
+        if (selectedSessionId && session.session_id === selectedSessionId) {
+            li.classList.add("selected-session")
+        }
 
         list.appendChild(li)
     })
 
-    // Add the New Chat button dynamically at the end
+    // Add the New Chat button
     const newChatLi = document.createElement("li")
     newChatLi.className = "new-chat session-item"
     newChatLi.textContent = "+ New Chat"
@@ -139,20 +173,28 @@ async function loadSession(sessionId) {
         chatWindow.appendChild(div)
     })
 }
+
+// Create new session
 async function createNewSession() {
-    await fetch("/new_session", { method: "POST" })
+    // Call backend to create new session
+    const response = await fetch("/new_session", { method: "POST" })
+    const data = await response.json()
 
-    // Clear chat window
+    if (!data.status || data.status !== "ok") {
+        console.error("Failed to create new session")
+        return
+    }
+
     const chatWindow = document.getElementById("chat-window")
-    chatWindow.innerHTML = ""
+    chatWindow.innerHTML = ""  // Clear chat window
 
-    // OPTIONAL (important): reset input focus
-    document.getElementById("message-input").focus()
+    document.getElementById("message-input").focus()  // Reset input focus
 
-    // Reload sidebar so new session appears
-    loadSessions()
+    // Reload sidebar
+    await loadSessions(data.session_id)  // pass new session_id to highlight it
 }
 
+// Allow Enter key to send message
 document.getElementById("message-input")
     .addEventListener("keypress", function (e) {
         if (e.key === "Enter") {
@@ -208,6 +250,25 @@ function escapeHtml(text) {
 // Load sessions when page opens
 window.onload = () => {
     loadSessions()
+}
+
+// rename session
+async function renameSession(sessionId, currentName, spanElement) {
+    const newName = prompt("Enter new session name:", currentName);
+    if (!newName || newName.trim() === "") return;
+
+    const response = await fetch(`/rename_session/${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName.trim() })
+    });
+
+    const data = await response.json();
+    if (data.status === "ok") {
+        spanElement.textContent = data.name; // Update UI immediately
+    } else {
+        alert("Failed to rename session: " + data.message);
+    }
 }
 
 </script>
