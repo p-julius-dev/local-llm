@@ -10,6 +10,38 @@ app = Flask(__name__)
 
 DB_PATH = "db/chat_sessions.db"
 
+# Create database and tables at initial startup 
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Sessions table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            name TEXT
+        )
+    """)
+
+    # Messages table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id INTEGER,
+            role TEXT,
+            content TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(session_id) REFERENCES sessions(session_id)
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+# Call this on startup
+init_db()
+
 # Single active session for UI (can expand later)
 current_session_id = None
 messages = []
@@ -71,6 +103,20 @@ def safe_exit(sig, frame):
     # If using 'with' blocks for DB, this is usually unnecessary
     
     sys.exit(0)  # exit Python cleanly
+
+# delete session
+@app.post("/delete_session/<session_id>")
+def delete_session(session_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+
+        # Delete messages first (foreign key dependency)
+        cursor.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+        cursor.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
+
+        conn.commit()
+
+    return jsonify({"status": "ok"})
 
 # ------------------------
 # Routes

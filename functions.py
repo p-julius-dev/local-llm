@@ -32,14 +32,17 @@ def load_session_messages(cursor, session_id):
 
 def create_new_session(cursor):
     """Create a new session and insert into DB."""
-    session_id = generate_new_session_id()
+    # Let SQLite handle auto-increment ID; no need to generate manually
+    default_name = "New Chat"
     start_time = datetime.now().isoformat()
-    cursor.execute(
-        "INSERT INTO sessions (session_id, start_time) VALUES (?, ?)",
-        (session_id, start_time)
-    )
-    return session_id, start_time
 
+    cursor.execute(
+        "INSERT INTO sessions (start_time, name) VALUES (?, ?)",
+        (start_time, default_name)
+    )
+
+    session_id = cursor.lastrowid  # Get the auto-generated session_id
+    return session_id, default_name
 
 def save_message(cursor, session_id, role, content):
     """Save a message to the DB."""

@@ -13,7 +13,6 @@
     <div id="sidebar">
         <h3>Chat History</h3>
         <ul id="session-list"></ul>
-        <button class="new-chat" onclick="createNewSession()">+ New Chat</button>
     </div>
 
       
@@ -81,21 +80,44 @@ async function loadSessions() {
     const sessions = await response.json()
 
     const list = document.getElementById("session-list")
-    list.innerHTML = ""
+    list.innerHTML = ""  // clear everything
 
+    // Build each session item
     sessions.forEach(session => {
-        const div = document.createElement("div")
-        div.className = "session-item"
+        const li = document.createElement("li")
+        li.className = "session-item"
 
-        const date = new Date(session.start_time).toLocaleString()
-        div.textContent = date
+        // Session date text
+        const span = document.createElement("span")
+        span.textContent = new Date(session.start_time).toLocaleString()
+        span.className = "session-text"
+        li.appendChild(span)
 
-        div.onclick = () => loadSession(session.session_id)
+        // Delete button
+        const deleteBtn = document.createElement("button")
+        deleteBtn.className = "delete-btn"
+        deleteBtn.textContent = "⋮"
+        deleteBtn.onclick = async (e) => {
+            e.stopPropagation()  // prevent triggering li click
+            await fetch(`/delete_session/${session.session_id}`, { method: "POST" })
+            loadSessions()
+            document.getElementById("chat-window").innerHTML = ""
+        }
+        li.appendChild(deleteBtn)
 
-        list.appendChild(div)
+        // Load session click
+        li.onclick = () => loadSession(session.session_id)
+
+        list.appendChild(li)
     })
-}
 
+    // Add the New Chat button dynamically at the end
+    const newChatLi = document.createElement("li")
+    newChatLi.className = "new-chat session-item"
+    newChatLi.textContent = "+ New Chat"
+    newChatLi.onclick = createNewSession
+    list.appendChild(newChatLi)
+}
 
 async function loadSession(sessionId) {
     const response = await fetch(`/session/${sessionId}`)
