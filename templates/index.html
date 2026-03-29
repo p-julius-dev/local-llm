@@ -9,7 +9,7 @@
 
 <div class="app-container">
 
- <!-- Sidebar -->
+    <!-- Left Sidebar -->
     <div id="sidebar">
         <h3>Chat History</h3>
         <ul id="session-list"></ul>
@@ -26,9 +26,28 @@
             <input id="message-input" type="text" placeholder="Ask something...">
             <button onclick="sendMessage()">Send</button>
         </div>
+          
+    </div>
+     <!-- RIGHT SIDEBAR -->
+     <div class="sidebar-right">
+
+        <div class="panel upload-panel">
+            <h3>Upload</h3>
+            <div class="placeholder">No uploads yet</div>
+        </div>
+
+        <div class="panel files-panel">
+            <h3>Files</h3>
+            <div class="placeholder">No files loaded</div>
+        </div>
+
+        <div class="panel code-panel">
+            <h3>Code / Query</h3>
+            <div class="placeholder">No actions yet</div>
+        </div>
 
     </div>
-
+        <!-- end right sidebar-->
 </div>
 
 <script>
@@ -145,7 +164,7 @@ async function loadSessions(selectedSessionId = null) {
         list.appendChild(li)
     })
 
-    // Add the New Chat button
+    // New Chat button
     const newChatLi = document.createElement("li")
     newChatLi.className = "new-chat session-item"
     newChatLi.textContent = "+ New Chat"
