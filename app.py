@@ -149,6 +149,15 @@ def get_dataset_info(df):
         "preview": df.head(5).to_dict(orient="records")
     }
 
+# List files endpointc3/30
+@app.get("/files")
+def list_files():
+    return {
+        "status": "ok",
+        "files": list(loaded_files.keys())
+    }
+
+
 # ------------------------
 # Routes
 # ------------------------
