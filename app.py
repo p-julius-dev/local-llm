@@ -141,6 +141,14 @@ def load_csv(filepath):
     df = pd.read_csv(filepath)
     return df
 
+#CSV File reader helper 3/30
+def get_dataset_info(df):
+    return {
+        "columns": list(df.columns),
+        "rows": len(df),
+        "preview": df.head(5).to_dict(orient="records")
+    }
+
 # ------------------------
 # Routes
 # ------------------------
@@ -225,6 +233,19 @@ def upload_csv():
     print(f"[DEBUG] Loaded into memory: {file.filename} ({len(df)} rows)")
 
     return {"status": "ok", "filename": file.filename}
+
+# upload CSV routing 3/30
+@app.get("/dataset_info/<filename>")
+def dataset_info(filename):
+    df = loaded_files.get(filename)
+
+    if df is None:
+        return {"status": "error", "message": "File not loaded"}, 404
+
+    return {
+        "status": "ok",
+        "data": get_dataset_info(df)
+    }
 
 #TEMPROARY test route
 @app.get("/upload_test")
