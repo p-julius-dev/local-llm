@@ -5,6 +5,7 @@ from datetime import datetime
 import signal
 import sys
 import os
+import pandas as pd
 from ollama import chat
 
 app = Flask(__name__)
@@ -12,6 +13,9 @@ app = Flask(__name__)
 # create upload folder
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+#in memroy storage
+loaded_files = {}
 
 DB_PATH = "db/chat_sessions.db"
 
@@ -132,6 +136,11 @@ def delete_session(session_id):
 
     return jsonify({"status": "ok"})
 
+# CSV file upload helper 3/30
+def load_csv(filepath):
+    df = pd.read_csv(filepath)
+    return df
+
 # ------------------------
 # Routes
 # ------------------------
@@ -209,11 +218,24 @@ def upload_csv():
 
     file.save(filepath)
 
+    df = load_csv(filepath)
+    loaded_files[file.filename] = df
+
     print(f"[DEBUG] Uploaded file saved to: {filepath}")
+    print(f"[DEBUG] Loaded into memory: {file.filename} ({len(df)} rows)")
 
     return {"status": "ok", "filename": file.filename}
 
-
+#TEMPROARY test route
+@app.get("/upload_test")
+def upload_test():
+    return '''
+    <h3>Upload CSV Test</h3>
+    <form action="/upload_csv" method="post" enctype="multipart/form-data">
+        <input type="file" name="file">
+        <input type="submit">
+    </form>
+    '''
 
 
 if __name__ == "__main__":
