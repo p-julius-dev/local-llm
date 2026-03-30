@@ -4,9 +4,14 @@ from functions import process_user_message, create_new_session, get_all_sessions
 from datetime import datetime
 import signal
 import sys
+import os
 from ollama import chat
 
 app = Flask(__name__)
+
+# create upload folder
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DB_PATH = "db/chat_sessions.db"
 
@@ -191,6 +196,24 @@ def rename_session(session_id):
     conn.close()
 
     return {"status": "ok", "name": new_name}
+
+# upload endpoint backend 3/30
+@app.post("/upload_csv")
+def upload_csv():
+    file = request.files.get("file")
+
+    if not file:
+        return {"status": "error", "message": "No file uploaded"}, 400
+
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+
+    file.save(filepath)
+
+    print(f"[DEBUG] Uploaded file saved to: {filepath}")
+
+    return {"status": "ok", "filename": file.filename}
+
+
 
 
 if __name__ == "__main__":
