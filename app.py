@@ -256,16 +256,7 @@ def dataset_info(filename):
         "data": get_dataset_info(df)
     }
 
-#TEMPROARY test route
-@app.get("/upload_test")
-def upload_test():
-    return '''
-    <h3>Upload CSV Test</h3>
-    <form action="/upload_csv" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit">
-    </form>
-    '''
+
 
 
 if __name__ == "__main__":

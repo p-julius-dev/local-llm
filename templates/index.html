@@ -33,12 +33,17 @@
 
         <div class="panel upload-panel">
             <h3>Upload</h3>
-            <div class="placeholder">No uploads yet</div>
+            <!--upload button 3/30-->
+            <input type="file" id="csv-file-input" accept=".csv">
+            <button onclick="uploadCSV()">Upload</button>
+
+            <div id="upload-status"></div>
+           <!--  <div class="placeholder">No uploads yet</div> -->
         </div>
 
         <div class="panel files-panel">
             <h3>Files</h3>
-            <div class="placeholder">No files loaded</div>
+            <div id="file-list" class="placeholder">No files loaded</div>
         </div>
 
         <div class="panel code-panel">
@@ -287,6 +292,94 @@ async function renameSession(sessionId, currentName, spanElement) {
         spanElement.textContent = data.name; // Update UI immediately
     } else {
         alert("Failed to rename session: " + data.message);
+    }
+}
+
+// Load files 3/30
+// --------------------------
+// load files + refresh after upload
+// --------------------------
+async function loadFiles() {
+    const container = document.getElementById("file-list");
+
+    // Fetch list of uploaded files from backend
+    const response = await fetch("/files");
+    const data = await response.json();
+
+    // Handle empty state
+    if (!data.files || !data.files.length) {
+        container.innerHTML = "No files loaded";
+        return;
+    }
+
+    // Clear previous contents
+    container.innerHTML = "";
+
+    // Render each file in the Files panel
+    data.files.forEach(file => {
+        const div = document.createElement("div");
+        div.textContent = file;
+        div.className = "file-item";
+        container.appendChild(div);
+    });
+}
+
+
+// Call loadFiles() AFTER upload succeeds
+// --------------------------
+async function handleUpload(event) {
+    // uploadCSV() is your existing upload function
+    await uploadCSV(event);
+
+    // Refresh Files panel immediately after upload
+    loadFiles();
+}
+
+// --------------------------
+// Initial load on page open
+// --------------------------
+window.addEventListener("DOMContentLoaded", () => {
+    loadFiles();
+});
+
+// Upload button/functionality 3/30
+async function uploadCSV() {
+    const fileInput = document.getElementById("csv-file-input");
+    const statusDiv = document.getElementById("upload-status");
+
+    const file = fileInput.files[0];
+
+    if (!file) {
+        statusDiv.textContent = "Please select a file.";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const response = await fetch("/upload_csv", {
+            method: "POST",
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.status === "ok") {
+            statusDiv.textContent = `Uploaded: ${result.filename}`;
+
+            // 🔑 THIS is the connection to Step 4
+            loadFiles();  // refresh Files panel
+
+            // optional: clear input
+            fileInput.value = "";
+        } else {
+            statusDiv.textContent = "Upload failed: " + result.message;
+        }
+
+    } catch (err) {
+        console.error(err);
+        statusDiv.textContent = "Upload error.";
     }
 }
 
