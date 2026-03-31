@@ -38,7 +38,7 @@
             <button onclick="uploadCSV()">Upload</button>
 
             <div id="upload-status"></div>
-           <!--  <div class="placeholder">No uploads yet</div> -->
+          
         </div>
 
         <div class="panel files-panel">
@@ -48,7 +48,8 @@
 
         <div class="panel code-panel">
             <h3>Code / Query</h3>
-            <div class="placeholder">No actions yet</div>
+            <div id="code-output">No actions yet</div>
+            <!-- <div class="placeholder">No actions yet</div> -->
         </div>
 
     </div>
@@ -119,7 +120,7 @@ async function loadSessions(selectedSessionId = null) {
 
         // Menu button (three dots)
         const menuBtn = document.createElement("button")
-        menuBtn.className = "action-btn"  // matches CSS
+        menuBtn.className = "action-btn"  
         menuBtn.textContent = "⋮"
 
         menuBtn.onclick = (e) => {
@@ -321,6 +322,8 @@ async function loadFiles() {
         div.textContent = file;
         div.className = "file-item";
         container.appendChild(div);
+        //onclick preview 3/31
+        div.onclick = () => loadDatasetInfo(file); 
     });
 }
 
@@ -328,7 +331,7 @@ async function loadFiles() {
 // Call loadFiles() AFTER upload succeeds
 // --------------------------
 async function handleUpload(event) {
-    // uploadCSV() is your existing upload function
+    // uploadCSV() is upload function
     await uploadCSV(event);
 
     // Refresh Files panel immediately after upload
@@ -368,7 +371,7 @@ async function uploadCSV() {
         if (result.status === "ok") {
             statusDiv.textContent = `Uploaded: ${result.filename}`;
 
-            // 🔑 THIS is the connection to Step 4
+            
             loadFiles();  // refresh Files panel
 
             // optional: clear input
@@ -380,6 +383,47 @@ async function uploadCSV() {
     } catch (err) {
         console.error(err);
         statusDiv.textContent = "Upload error.";
+    }
+}
+
+// Click uploaded file - show dataset preview 3/31
+async function loadDatasetInfo(filename) {
+    const container = document.getElementById("code-output");
+
+    container.textContent = "Loading...";
+
+    try {
+        const response = await fetch(`/dataset_info/${filename}`);
+        const result = await response.json();
+
+        if (result.status !== "ok") {
+            container.textContent = "Error loading dataset.";
+            return;
+        }
+
+        const data = result.data;
+
+        // Clear container
+        container.innerHTML = "";
+
+        // Columns
+        const cols = document.createElement("div");
+        cols.textContent = "Columns: " + data.columns.join(", ");
+        container.appendChild(cols);
+
+        // Row count
+        const rows = document.createElement("div");
+        rows.textContent = "Rows: " + data.rows;
+        container.appendChild(rows);
+
+        // Preview (simple JSON for now)
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(data.preview, null, 2);
+        container.appendChild(pre);
+
+    } catch (err) {
+        console.error(err);
+        container.textContent = "Error fetching dataset.";
     }
 }
 
