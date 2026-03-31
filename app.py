@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, Response
 import sqlite3
-from functions import process_user_message, create_new_session, get_all_sessions, load_session_messages, save_message
+from functions import process_user_message, create_new_session, get_all_sessions, load_session_messages, save_message, filter_dataset
 from datetime import datetime
 import signal
 import sys
@@ -157,6 +157,33 @@ def list_files():
         "files": list(loaded_files.keys())
     }
 
+# Filter dataset endpoint 3/31
+@app.get("/filter")
+def filter_data():
+    filename = request.args.get("file")
+    column = request.args.get("column")
+    value = request.args.get("value")
+
+    df = loaded_files.get(filename)
+
+    if df is None:
+        return {"status": "error", "message": "File not loaded"}, 404
+
+    if column not in df.columns:
+        return {"status": "error", "message": "Invalid column"}, 400
+
+    try:
+        result_df = filter_dataset(df, column, value)
+
+        return {
+            "status": "ok",
+            "rows": len(result_df),
+            "preview": result_df.head(5).to_dict(orient="records")
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
+    
 
 # ------------------------
 # Routes

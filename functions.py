@@ -90,3 +90,7 @@ def process_user_message(cursor, session_id, messages, user_message):
     save_message(cursor, session_id, "assistant", assistant_reply)
 
     return assistant_reply
+
+# Data filtering 3/31
+def filter_dataset(df, column, value):
+    return df[df[column] == value]
