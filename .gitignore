@@ -1,6 +1,7 @@
 phi_env/
 __pycache__/
-db/
+db/*
+!db/.gitkeep
 .idea/
 *.csv
 uploads/*
