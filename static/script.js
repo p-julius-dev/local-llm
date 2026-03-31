@@ -1,0 +1,368 @@
+async function sendMessage() {
+    const input = document.getElementById("message-input")
+    const chatWindow = document.getElementById("chat-window")
+
+    const userMessage = input.value
+    if (!userMessage) return
+
+    chatWindow.innerHTML += `<div class="user-msg">${userMessage}</div>`
+    input.value = ""
+
+    const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage })
+    })
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+
+    let assistantDiv = document.createElement("div")
+    assistantDiv.className = "assistant-msg"
+    chatWindow.appendChild(assistantDiv)
+
+    let done = false
+
+    let fullText = ""
+
+    while (!done) {
+        const { value, done: doneReading } = await reader.read()
+        done = doneReading
+
+        const chunk = decoder.decode(value || new Uint8Array())
+        fullText += chunk
+        renderMessage(assistantDiv, fullText)
+    }
+
+    chatWindow.scrollTop = chatWindow.scrollHeight
+
+    loadSessions()
+}
+
+
+async function loadSessions(selectedSessionId = null) {
+    const response = await fetch("/sessions")
+    const sessions = await response.json()
+
+    const list = document.getElementById("session-list")
+    list.innerHTML = ""  // clear everything
+
+    sessions.forEach(session => {
+        const li = document.createElement("li")
+        li.className = "session-item"
+        li.dataset.sessionId = session.session_id
+
+        // Session name text
+        const span = document.createElement("span")
+        span.textContent = session.name || new Date(session.start_time).toLocaleString()
+        span.className = "session-text"
+        li.appendChild(span)
+
+        // Menu button (three dots)
+        const menuBtn = document.createElement("button")
+        menuBtn.className = "action-btn"  
+        menuBtn.textContent = "⋮"
+
+        menuBtn.onclick = (e) => {
+            e.stopPropagation()  // prevent li click
+
+            // Remove existing popouts
+            document.querySelectorAll(".action-menu").forEach(m => m.remove())
+
+            // Create menu
+            const menu = document.createElement("div")
+            menu.className = "action-menu"
+
+            // Rename
+            const renameOption = document.createElement("div")
+            renameOption.textContent = "Rename"
+            renameOption.onclick = (ev) => {
+                ev.stopPropagation()
+                renameSession(session.session_id, span.textContent, span)
+                menu.remove()
+            }
+            menu.appendChild(renameOption)
+
+            // Delete
+            const deleteOption = document.createElement("div")
+            deleteOption.textContent = "Delete"
+            deleteOption.onclick = async (ev) => {
+                ev.stopPropagation()
+                await fetch(`/delete_session/${session.session_id}`, { method: "POST" })
+                loadSessions()
+                document.getElementById("chat-window").innerHTML = ""
+            }
+            menu.appendChild(deleteOption)
+
+            li.appendChild(menu)
+        }
+
+        li.appendChild(menuBtn)
+
+        // Click anywhere else on li loads the session
+        li.onclick = () => loadSession(session.session_id)
+
+        // Highlight selected session
+        if (selectedSessionId && session.session_id === selectedSessionId) {
+            li.classList.add("selected-session")
+        }
+
+        list.appendChild(li)
+    })
+
+    // New Chat button
+    const newChatLi = document.createElement("li")
+    newChatLi.className = "new-chat session-item"
+    newChatLi.textContent = "+ New Chat"
+    newChatLi.onclick = createNewSession
+    list.appendChild(newChatLi)
+}
+
+async function loadSession(sessionId) {
+    const response = await fetch(`/session/${sessionId}`)
+    const messages = await response.json()
+
+    const chatWindow = document.getElementById("chat-window")
+    chatWindow.innerHTML = ""
+
+    messages.forEach(msg => {
+        const div = document.createElement("div")
+
+        if (msg.role === "user") {
+            div.className = "user-msg"
+        } else {
+            div.className = "assistant-msg"
+        }
+
+        renderMessage(div, msg.content)
+        chatWindow.appendChild(div)
+    })
+}
+
+// Create new session
+async function createNewSession() {
+    // Call backend to create new session
+    const response = await fetch("/new_session", { method: "POST" })
+    const data = await response.json()
+
+    if (!data.status || data.status !== "ok") {
+        console.error("Failed to create new session")
+        return
+    }
+
+    const chatWindow = document.getElementById("chat-window")
+    chatWindow.innerHTML = ""  // Clear chat window
+
+    document.getElementById("message-input").focus()  // Reset input focus
+
+    // Reload sidebar
+    await loadSessions(data.session_id)  // pass new session_id to highlight it
+}
+
+// Allow Enter key to send message
+document.getElementById("message-input")
+    .addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault()
+            sendMessage()
+        }
+    })
+
+// Simple parser for code block rendering
+function renderMessage(container, content) {
+    container.innerHTML = ""  // clear safely
+
+    const codeBlockRegex = /```([\s\S]*?)```/g
+    let lastIndex = 0
+    let match
+
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+        // TEXT before code block
+        const textPart = content.slice(lastIndex, match.index)
+        const textNode = document.createElement("div")
+        textNode.textContent = textPart
+        textNode.style.whiteSpace = "pre-wrap"
+        container.appendChild(textNode)
+
+        // CODE block
+        const code = document.createElement("pre")
+        const codeInner = document.createElement("code")
+        codeInner.textContent = match[1].trim()
+        code.appendChild(codeInner)
+        container.appendChild(code)
+
+        lastIndex = codeBlockRegex.lastIndex
+    }
+
+    // Remaining text
+    const remaining = content.slice(lastIndex)
+    if (remaining) {
+        const textNode = document.createElement("div")
+        textNode.textContent = remaining
+        textNode.style.whiteSpace = "pre-wrap"
+        container.appendChild(textNode)
+    }
+}
+
+// code block helper
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+}
+
+// Load sessions when page opens
+window.onload = () => {
+    loadSessions()
+}
+
+// rename session
+async function renameSession(sessionId, currentName, spanElement) {
+    const newName = prompt("Enter new session name:", currentName);
+    if (!newName || newName.trim() === "") return;
+
+    const response = await fetch(`/rename_session/${sessionId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName.trim() })
+    });
+
+    const data = await response.json();
+    if (data.status === "ok") {
+        spanElement.textContent = data.name; // Update UI immediately
+    } else {
+        alert("Failed to rename session: " + data.message);
+    }
+}
+
+// Load files 3/30
+// --------------------------
+// load files + refresh after upload
+// --------------------------
+async function loadFiles() {
+    const container = document.getElementById("file-list");
+
+    // Fetch list of uploaded files from backend
+    const response = await fetch("/files");
+    const data = await response.json();
+
+    // Handle empty state
+    if (!data.files || !data.files.length) {
+        container.innerHTML = "No files loaded";
+        return;
+    }
+
+    // Clear previous contents
+    container.innerHTML = "";
+
+    // Render each file in the Files panel
+    data.files.forEach(file => {
+        const div = document.createElement("div");
+        div.textContent = file;
+        div.className = "file-item";
+        container.appendChild(div);
+        //onclick preview 3/31
+        div.onclick = () => loadDatasetInfo(file); 
+    });
+}
+
+
+// Call loadFiles() AFTER upload succeeds
+// --------------------------
+async function handleUpload(event) {
+    // uploadCSV() is upload function
+    await uploadCSV(event);
+
+    // Refresh Files panel immediately after upload
+    loadFiles();
+}
+
+// --------------------------
+// Initial load on page open
+// --------------------------
+window.addEventListener("DOMContentLoaded", () => {
+    loadFiles();
+});
+
+// Upload button/functionality 3/30
+async function uploadCSV() {
+    const fileInput = document.getElementById("csv-file-input");
+    const statusDiv = document.getElementById("upload-status");
+
+    const file = fileInput.files[0];
+
+    if (!file) {
+        statusDiv.textContent = "Please select a file.";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+        const response = await fetch("/upload_csv", {
+            method: "POST",
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (result.status === "ok") {
+            statusDiv.textContent = `Uploaded: ${result.filename}`;
+
+            
+            loadFiles();  // refresh Files panel
+
+            // optional: clear input
+            fileInput.value = "";
+        } else {
+            statusDiv.textContent = "Upload failed: " + result.message;
+        }
+
+    } catch (err) {
+        console.error(err);
+        statusDiv.textContent = "Upload error.";
+    }
+}
+
+// Click uploaded file - show dataset preview 3/31
+async function loadDatasetInfo(filename) {
+    const container = document.getElementById("code-output");
+
+    container.textContent = "Loading...";
+
+    try {
+        const response = await fetch(`/dataset_info/${filename}`);
+        const result = await response.json();
+
+        if (result.status !== "ok") {
+            container.textContent = "Error loading dataset.";
+            return;
+        }
+
+        const data = result.data;
+
+        // Clear container
+        container.innerHTML = "";
+
+        // Columns
+        const cols = document.createElement("div");
+        cols.textContent = "Columns: " + data.columns.join(", ");
+        container.appendChild(cols);
+
+        // Row count
+        const rows = document.createElement("div");
+        rows.textContent = "Rows: " + data.rows;
+        container.appendChild(rows);
+
+        // Preview (simple JSON for now)
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(data.preview, null, 2);
+        container.appendChild(pre);
+
+    } catch (err) {
+        console.error(err);
+        container.textContent = "Error fetching dataset.";
+    }
+}
