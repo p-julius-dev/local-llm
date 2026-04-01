@@ -236,7 +236,7 @@ async function renameSession(sessionId, currentName, spanElement) {
     }
 }
 
-// Load files 3/30
+// Load files 
 // --------------------------
 // load files + refresh after upload
 // --------------------------
@@ -285,7 +285,7 @@ window.addEventListener("DOMContentLoaded", () => {
     loadFiles();
 });
 
-// Upload button/functionality 3/30
+// Upload button/functionality 
 async function uploadCSV() {
     const fileInput = document.getElementById("csv-file-input");
     const statusDiv = document.getElementById("upload-status");
@@ -326,7 +326,7 @@ async function uploadCSV() {
     }
 }
 
-// Click uploaded file - show dataset preview 3/31
+// Click uploaded file - show dataset preview 
 async function loadDatasetInfo(filename) {
     const container = document.getElementById("code-output");
 
@@ -364,5 +364,39 @@ async function loadDatasetInfo(filename) {
     } catch (err) {
         console.error(err);
         container.textContent = "Error fetching dataset.";
+    }
+}
+
+// Test Filter 4/1
+async function runTestFilter() {
+    const container = document.getElementById("code-output");
+
+    container.textContent = "Running filter...";
+
+    try {
+        const response = await fetch(
+            "/filter?file=summer.csv&column=Country&value=USA"
+        );
+
+        const result = await response.json();
+
+        if (result.status !== "ok") {
+            container.textContent = "Error running filter.";
+            return;
+        }
+
+        container.innerHTML = "";
+
+        const rows = document.createElement("div");
+        rows.textContent = "Rows: " + result.rows;
+        container.appendChild(rows);
+
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(result.preview, null, 2);
+        container.appendChild(pre);
+
+    } catch (err) {
+        console.error(err);
+        container.textContent = "Request failed.";
     }
 }

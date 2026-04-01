@@ -51,7 +51,7 @@ def init_db():
 # Call this on startup
 init_db()
 
-# Single active session for UI (can expand later)
+# Single active session for UI 
 current_session_id = None
 messages = []
 
@@ -67,7 +67,7 @@ def get_sessions():
         {
             "session_id": s[0],
             "start_time": s[1],
-            "name": s[2]   # ← THIS IS THE FIX
+            "name": s[2]   
         }
         for s in sessions
     ]
@@ -118,7 +118,7 @@ def safe_exit(sig, frame):
     
     # Optional: do any final cleanup here
     # e.g., commit remaining messages, close DB if needed
-    # If using 'with' blocks for DB, this is usually unnecessary
+   
     
     sys.exit(0)  # exit Python cleanly
 
@@ -136,12 +136,12 @@ def delete_session(session_id):
 
     return jsonify({"status": "ok"})
 
-# CSV file upload helper 3/30
+# CSV file upload helper 
 def load_csv(filepath):
     df = pd.read_csv(filepath)
     return df
 
-#CSV File reader helper 3/30
+#CSV File reader helper 
 def get_dataset_info(df):
     return {
         "columns": list(df.columns),
@@ -149,7 +149,7 @@ def get_dataset_info(df):
         "preview": df.head(5).to_dict(orient="records")
     }
 
-# List files endpointc3/30
+# List files endpoint
 @app.get("/files")
 def list_files():
     return {
@@ -157,7 +157,7 @@ def list_files():
         "files": list(loaded_files.keys())
     }
 
-# Filter dataset endpoint 3/31
+# Filter dataset endpoint 
 @app.get("/filter")
 def filter_data():
     filename = request.args.get("file")
@@ -250,7 +250,7 @@ def rename_session(session_id):
 
     return {"status": "ok", "name": new_name}
 
-# upload endpoint backend 3/30
+# upload endpoint backend 
 @app.post("/upload_csv")
 def upload_csv():
     file = request.files.get("file")
@@ -270,7 +270,7 @@ def upload_csv():
 
     return {"status": "ok", "filename": file.filename}
 
-# upload CSV routing 3/30
+# upload CSV routing 
 @app.get("/dataset_info/<filename>")
 def dataset_info(filename):
     df = loaded_files.get(filename)

@@ -91,6 +91,6 @@ def process_user_message(cursor, session_id, messages, user_message):
 
     return assistant_reply
 
-# Data filtering 3/31
+# Data filtering 
 def filter_dataset(df, column, value):
     return df[df[column] == value]
