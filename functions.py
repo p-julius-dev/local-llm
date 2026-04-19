@@ -91,6 +91,51 @@ def process_user_message(cursor, session_id, messages, user_message):
 
     return assistant_reply
 
-# Data filtering 
+# Data filtering ORG
+#def filter_dataset(df, column, value):
+    #return df[df[column] == value]
+
+# Data filtering new 4/18
 def filter_dataset(df, column, value):
+    try:
+        # Attempt to coerce value to column dtype
+        value = df[column].dtype.type(value)
+    except:
+        pass
+
     return df[df[column] == value]
+
+# ------------------------
+# Tool Registry 4/18
+# ------------------------
+
+TOOLS = {
+    "filter_dataset": filter_dataset
+}
+
+# -----------------------
+# Tool Execution Wrapper 4/18
+# -----------------------
+def execute_tool(action, parameters, loaded_files):
+    if action not in TOOLS:
+        raise ValueError(f"Unknown tool: {action}")
+
+    if action == "filter_dataset":
+        file = parameters.get("file")
+        column = parameters.get("column")
+        value = parameters.get("value")
+
+        df = loaded_files.get(file)
+        if df is None:
+            raise ValueError("File not loaded")
+
+        result_df = TOOLS[action](df, column, value)
+
+        return {
+            "columns": list(result_df.columns),
+            "row_count": len(result_df),
+            "preview": result_df.head(10).to_dict(orient="records")
+        }
+
+    # Future tools go here
+    

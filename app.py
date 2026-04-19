@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, Response
 import sqlite3
-from functions import process_user_message, create_new_session, get_all_sessions, load_session_messages, save_message, filter_dataset
+from functions import process_user_message, create_new_session, get_all_sessions, load_session_messages, save_message, filter_dataset,execute_tool
 from datetime import datetime
 import signal
 import sys
@@ -157,8 +157,8 @@ def list_files():
         "files": list(loaded_files.keys())
     }
 
-# Filter dataset endpoint 
-@app.get("/filter")
+# Filter dataset endpoint - CHANGED from @app.get("/filter") 4/18
+@app.get("/filter_dataset")
 def filter_data():
     filename = request.args.get("file")
     column = request.args.get("column")
@@ -174,16 +174,25 @@ def filter_data():
 
     try:
         result_df = filter_dataset(df, column, value)
-
+        
+        #return {
+            #"status": "ok",
+            #"rows": len(result_df),
+            #"preview": result_df.head(5).to_dict(orient="records")
+        #}
         return {
             "status": "ok",
-            "rows": len(result_df),
-            "preview": result_df.head(5).to_dict(orient="records")
+            "columns": list(result_df.columns),
+            "row_count": len(result_df),
+            "preview": result_df.head(10).to_dict(orient="records")
         }
-
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
     
+#keep old /filter functional 4/18 it doesn't do row counts, leaving it as-is
+@app.get("/filter")
+def filter_data_legacy():
+    return filter_data()
 
 # ------------------------
 # Routes
@@ -201,39 +210,102 @@ def chat_route():
     global messages
 
     user_message = request.json.get("message", "")
+    
+    session_id = current_session_id #chat freeze fix 4/19
 
-    def generate():
-        global current_session_id   # REQUIRED HERE
+    #new generate session to fix db freeze 4/19
+    def generate(session_id): 
 
-        with sqlite3.connect(DB_PATH, check_same_thread=False) as conn:
+    # --- 1. SAVE USER MESSAGE (DB OPEN SHORT TIME) ---
+        with sqlite3.connect(DB_PATH, timeout=5) as conn:
             cursor = conn.cursor()
 
-            if current_session_id is None:
-                current_session_id, _ = create_new_session(cursor)
+            if session_id is None:
+                session_id, _ = create_new_session(cursor)
 
             messages.append({"role": "user", "content": user_message})
-            save_message(cursor, current_session_id, "user", user_message)
+            save_message(cursor, session_id, "user", user_message)
+            conn.commit()
+        
+        # -- tool suggestion system instruction 4/19 --#
 
-            stream = chat(
-                model="phi3:mini",
-                messages=messages,
-                options={"temperature": 0.4},
-                stream=True
-            )
+        system_prompt = {
+            "role": "system",
+            "content": """
+        You are a tool-calling system.
 
-            assistant_reply = ""
+        You MUST follow these rules:
 
-            for chunk in stream:
-                if "message" in chunk:
-                    content = chunk["message"]["content"]
-                    assistant_reply += content
-                    yield content
+        1. If the user request involves dataset operations, respond ONLY with valid JSON.
+        2. Output must contain ONLY JSON. No explanations. No extra text. No markdown.
+        3. The JSON must follow this format exactly:
+
+        {
+        "action": "filter_dataset",
+        "parameters": {
+            "file": "<filename>",
+            "column": "<column_name>",
+            "value": "<value>"
+        }
+        }
+
+        4. Do NOT invent new files.
+        5. Do NOT explain your answer.
+        6. Do NOT repeat the request.
+        7. If you are unsure, still output JSON using best guess.
+        8. You are NOT allowed to describe results or outcomes.
+        9. You are NOT allowed to assume what the system will return.
+        10. You ONLY output the action request JSON.
+
+        Violation = invalid output.
+        """
+        }
+
+        # --- 2. STREAM LLM (NO DB CONNECTION) ---
+        stream = chat(
+            model="phi3:mini",
+            messages=[system_prompt] + messages,
+            options={"temperature": 0.4},
+            stream=True
+        )
+
+        assistant_reply = ""
+
+        for chunk in stream:
+            if "message" in chunk:
+                content = chunk["message"]["content"]
+                assistant_reply += content
+                yield content
+        
+        #tool handling added 4/19
+        import json
+        import re
+
+        tool_action = None
+
+        # grab first JSON block only
+        match = re.search(r"\{[\s\S]*?\}", assistant_reply)
+
+        if match:
+            raw = match.group(0)
+
+            try:
+                tool_action = json.loads(raw)
+            except:
+                tool_action = None
+
+        if tool_action and "action" in tool_action:
+            print("[DEBUG] Tool suggested:", tool_action)
+
+        # --- 3. SAVE ASSISTANT MESSAGE (DB OPEN SHORT TIME) ---
+        with sqlite3.connect(DB_PATH, timeout=5) as conn:
+            cursor = conn.cursor()
 
             messages.append({"role": "assistant", "content": assistant_reply})
-            save_message(cursor, current_session_id, "assistant", assistant_reply)
+            save_message(cursor, session_id, "assistant", assistant_reply)
             conn.commit()
 
-    return Response(generate(), content_type="text/plain")
+    return Response(generate(session_id), content_type="text/plain") #added session_id 4/19
 
 # rename session
 @app.route("/rename_session/<int:session_id>", methods=["POST"])
@@ -282,8 +354,18 @@ def dataset_info(filename):
         "status": "ok",
         "data": get_dataset_info(df)
     }
+#Debug Endpoint 4/18
+@app.post("/run_tool")
+def run_tool():
+    data = request.json
+    action = data.get("action")
+    parameters = data.get("parameters", {})
 
-
+    try:
+        result = execute_tool(action, parameters, loaded_files)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}, 400
 
 
 if __name__ == "__main__":
