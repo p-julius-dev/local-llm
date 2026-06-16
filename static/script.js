@@ -33,6 +33,17 @@ async function sendMessage() {
         fullText += chunk
         renderMessage(assistantDiv, fullText)
     }
+    // stream is finished here
+    try {
+        const res = await fetch("/last_tool_action");
+        const data = await res.json();
+
+        console.log("Tool action:", data.tool_action); //console log for debug 6/16
+
+        renderToolAction(data.tool_action);
+    } catch (err) {
+        console.error("Failed to fetch tool action", err);
+    }
 
     chatWindow.scrollTop = chatWindow.scrollHeight
 
@@ -365,6 +376,18 @@ async function loadDatasetInfo(filename) {
         console.error(err);
         container.textContent = "Error fetching dataset.";
     }
+}
+
+// tool action render added 6/16
+function renderToolAction(toolAction) {
+    const container = document.getElementById("code-output");
+
+    if (!toolAction) {
+        container.textContent = "No actions yet";
+        return;
+    }
+
+    container.textContent = JSON.stringify(toolAction, null, 2);
 }
 
 // Test Filter 4/1

@@ -17,6 +17,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 #in memroy storage
 loaded_files = {}
 
+#global storage added 6/16
+last_tool_action = None
+
 DB_PATH = "db/chat_sessions.db"
 
 # Create database and tables at initial startup 
@@ -252,7 +255,7 @@ def chat_route():
         4. Do NOT invent new files.
         5. Do NOT explain your answer.
         6. Do NOT repeat the request.
-        7. If you are unsure, still output JSON using best guess.
+        7. Only output JSON when the user explicitly requests a dataset operation. If the request is conversational (e.g., greetings, questions, chat), respond normally with natural language and NO JSON.
         8. You are NOT allowed to describe results or outcomes.
         9. You are NOT allowed to assume what the system will return.
         10. You ONLY output the action request JSON.
@@ -280,22 +283,49 @@ def chat_route():
         #tool handling added 4/19
         import json
         import re
-
+        global last_tool_action #added 6/16
         tool_action = None
 
         # grab first JSON block only
-        match = re.search(r"\{[\s\S]*?\}", assistant_reply)
+        #match = re.search(r"\{[\s\S]*?\}", assistant_reply) replaced with below 6/16
+       # tool handling added 6/16
+    
+        def extract_json_object(text):
+            start = text.find("{")
+            if start == -1:
+                return None
 
-        if match:
-            raw = match.group(0)
+            brace_count = 0
 
+            for i in range(start, len(text)):
+                if text[i] == "{":
+                    brace_count += 1
+                elif text[i] == "}":
+                    brace_count -= 1
+
+                if brace_count == 0:
+                    return text[start:i+1]
+
+            return None
+
+
+        raw = extract_json_object(assistant_reply)
+
+        if raw:
             try:
                 tool_action = json.loads(raw)
-            except:
+            except Exception as e:
+                print("[DEBUG] JSON parse failed:")
+                print(raw)
+                print(e)
                 tool_action = None
 
         if tool_action and "action" in tool_action:
             print("[DEBUG] Tool suggested:", tool_action)
+            last_tool_action = tool_action
+        else:
+            last_tool_action = None
+        
 
         # --- 3. SAVE ASSISTANT MESSAGE (DB OPEN SHORT TIME) ---
         with sqlite3.connect(DB_PATH, timeout=5) as conn:
@@ -367,6 +397,17 @@ def run_tool():
     except Exception as e:
         return {"status": "error", "error": str(e)}, 400
 
+#last tool action memory added 6/16
+@app.get("/last_tool_action")
+def get_last_tool_action():
+    global last_tool_action
+
+    print("[DEBUG] Returning tool action:", last_tool_action) #debug print
+
+
+    return jsonify({
+        "tool_action": last_tool_action
+    })
 
 if __name__ == "__main__":
     try:
