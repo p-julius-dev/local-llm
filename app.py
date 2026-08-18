@@ -259,6 +259,7 @@ def chat_route():
         8. You are NOT allowed to describe results or outcomes.
         9. You are NOT allowed to assume what the system will return.
         10. You ONLY output the action request JSON.
+        11. Valid actions are limited to known dataset tools only. Never invent new actions.
 
         Violation = invalid output.
         """
@@ -388,6 +389,10 @@ def dataset_info(filename):
 @app.post("/run_tool")
 def run_tool():
     data = request.json
+
+    if not data:
+        return {"status": "error", "message": "No input"}, 400
+    
     action = data.get("action")
     parameters = data.get("parameters", {})
 

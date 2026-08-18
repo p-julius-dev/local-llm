@@ -423,3 +423,28 @@ async function runTestFilter() {
         container.textContent = "Request failed.";
     }
 }
+//Run Tool 8/18
+async function runTool() {
+    const response = await fetch("/last_tool_action");
+    const data = await response.json();
+
+    if (!data.tool_action) {
+        alert("No tool to run");
+        return;
+    }
+
+    const res = await fetch("/run_tool", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data.tool_action)
+    });
+
+    const result = await res.json();
+
+    const container = document.getElementById("code-output");
+    container.innerHTML = "";
+
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(result, null, 2);
+    container.appendChild(pre);
+}
